@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
-    <title>魔法学院番茄钟</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>魔法学院动漫番茄钟</title>
     <style>
         /* 魔法学院主题样式 */
         :root {
@@ -15,17 +17,73 @@
             background: var(--bg-image) center/cover;
             font-family: 'Harry Potter', cursive;
             color: var(--secondary-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        .cover {
+            background-color: #0000CD; /* 将封面颜色改为深蓝色 */
+            color: white;
+            text-align: center;
+            padding: 50px 0;
+        }
+
+        .cover h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            text-align: center;
+            margin: -30px auto 0;
+            width: 80%;
+            max-width: 600px;
+            position: relative;
+            z-index: 1;
         }
 
         /* 动态沙漏动画 */
         .hourglass {
             animation: flow 1500s linear infinite;
             background: linear-gradient(var(--secondary-color), var(--primary-color));
+            width: 50px;
+            height: 100px;
+            margin: 0 auto 20px;
         }
 
         @keyframes flow {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(180deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(180deg);
+            }
+        }
+
+        #timer {
+            font-size: 72px;
+            color: var(--secondary-color);
+            margin-bottom: 30px;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 15px 30px;
+            font-size: 18px;
+            margin: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
         }
 
         /* 任务列表魔法特效 */
@@ -36,17 +94,55 @@
 
         /* 商城弹窗样式 */
         .shop-modal {
-            background: rgba(0,0,0,0.8);
+            background: rgba(0, 0, 0, 0.8);
             border: 2px solid var(--secondary-color);
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            display: none;
+        }
+
+        /* 家长设置面板样式 */
+        #parentPanel {
+            margin-top: 20px;
+        }
+
+        #settings {
+            display: none;
+        }
+
+        /* 魔法特效样式 */
+        .spell-cast {
+            animation: spellEffect 1s ease-in-out;
+        }
+
+        @keyframes spellEffect {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 0.7;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
         }
     </style>
 </head>
+
 <body>
-    <!-- 主界面 -->
+    <div class="cover">
+        <h1>魔法学院动漫番茄钟</h1>
+    </div>
     <div class="container">
         <div class="hourglass"></div>
         <div id="timer">25:00</div>
-        
+
         <!-- 任务列表 -->
         <div class="task-list">
             <h2>今日魔法修炼任务 ✨</h2>
@@ -55,30 +151,39 @@
 
         <!-- 积分商城按钮 -->
         <button id="shopBtn">魔法商城 🛒 (<span id="points">0</span>🔮)</button>
+
+        <!-- 开始、暂停、重置按钮 -->
+        <button id="startBtn">开始</button>
+        <button id="pauseBtn">暂停</button>
+        <button id="resetBtn">重置</button>
     </div>
 
     <!-- 商城弹窗 -->
     <div id="shopModal" class="shop-modal">
         <h3>魔法兑换商店</h3>
         <ul id="shopItems"></ul>
+        <button id="closeShop">关闭</button>
     </div>
 
     <!-- 家长设置面板 -->
     <div id="parentPanel">
         <input type="password" id="parentPwd" placeholder="输入家长密码">
         <button onclick="showSettings()">解锁设置</button>
-        <div id="settings" style="display:none;">
+        <div id="settings">
             <h3>魔法学院设置</h3>
-            <textarea id="customTasks"></textarea>
-            <input type="number" id="customPoints">
+            <textarea id="customTasks" placeholder="输入自定义任务，每行一个"></textarea>
+            <input type="number" id="customPoints" placeholder="任务积分">
+            <button onclick="saveSettings()">保存设置</button>
         </div>
     </div>
 
+    <audio id="alarm" src="https://www.soundjay.com/button/beep-07.wav"></audio>
     <script>
         // 魔法学院核心逻辑
         let timeLeft = 1500; // 25分钟
         let points = 0;
         let currentTasks = [];
+        let timerInterval;
 
         // 初始化魔法任务
         function initTasks() {
@@ -101,20 +206,125 @@
 
         // 启动倒计时
         function startTimer() {
-            const timer = setInterval(() => {
+            timerInterval = setInterval(() => {
                 timeLeft--;
                 if (timeLeft % 300 === 0) { // 每5分钟提醒
                     owlSpeak("小魔法师，专注是最高级的咒语！");
                 }
-                if (timeLeft <= 0) clearInterval(timer);
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    alarm.play();
+                }
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                document.getElementById('timer').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
             }, 1000);
+        }
+
+        // 暂停倒计时
+        function pauseTimer() {
+            clearInterval(timerInterval);
+        }
+
+        // 重置倒计时
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timeLeft = 1500;
+            document.getElementById('timer').textContent = '25:00';
         }
 
         // 家长设置功能
         function showSettings() {
-            if (document.getElementById('parentPwd').value === '20250313') {
+            if (document.getElementById('parentPwd').value === 'magic2024') {
                 document.getElementById('settings').style.display = 'block';
             }
+        }
+
+        // 保存家长设置
+        function saveSettings() {
+            const customTasksInput = document.getElementById('customTasks').value;
+            const customPoints = parseInt(document.getElementById('customPoints').value);
+            const newTasks = customTasksInput.split('\n').filter(task => task.trim()!== '').map(task => ({
+                name: task,
+                points: customPoints
+            }));
+            currentTasks = currentTasks.concat(newTasks);
+            localStorage.setItem('tasks', JSON.stringify(currentTasks));
+            localStorage.setItem('pointRules', customPoints);
+            location.reload();
+        }
+
+        // 任务完成加分
+        function completeTask(taskElement) {
+            const taskPoints = parseInt(taskElement.textContent.match(/\+(\d+)🔮/)[1]);
+            points += taskPoints;
+            document.getElementById('points').textContent = points;
+            taskElement.style.textDecoration = 'line-through';
+            taskElement.querySelector('input[type="checkbox"]').disabled = true;
+            playMagicSound();
+        }
+
+        // 显示商城
+        function showShop() {
+            document.getElementById('shopModal').style.display = 'block';
+            const shopItemsList = document.getElementById('shopItems');
+            shopItemsList.innerHTML = '';
+            const shopItems = [
+                { name: "魔法羽毛笔", cost: 20 },
+                { name: "魔药配方书", cost: 30 },
+                { name: "飞行扫帚", cost: 50 }
+            ];
+            shopItems.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = `${item.name} (${item.cost}🔮)`;
+                const buyBtn = document.createElement('button');
+                buyBtn.textContent = '兑换';
+                buyBtn.onclick = () => buyItem(item.cost);
+                li.appendChild(buyBtn);
+                shopItemsList.appendChild(li);
+            });
+        }
+
+        // 购买商城物品
+        function buyItem(cost) {
+            if (points >= cost) {
+                points -= cost;
+                document.getElementById('points').textContent = points;
+                alert('兑换成功！');
+            } else {
+                alert('积分不足，无法兑换！');
+            }
+        }
+
+        // 关闭商城
+        function closeShop() {
+            document.getElementById('shopModal').style.display = 'none';
+        }
+
+        // 添加更多魔法特效
+        function castSpellEffect() {
+            document.querySelector('.hourglass').classList.add('spell-cast');
+            setTimeout(() => {
+                document.querySelector('.hourglass').classList.remove('spell-cast');
+            }, 1000);
+        }
+
+        // 连接硬件API示例
+        async function connectMagicWand() {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: 'Magic_Wand' }]
+                });
+                alert('成功连接魔法棒！');
+            } catch (error) {
+                alert('连接失败：' + error.message);
+            }
+        }
+
+        // 播放咒语音效
+        function playMagicSound() {
+            const audio = new Audio('magic-spell.mp3');
+            audio.play();
         }
 
         // 初始化
@@ -126,12 +336,19 @@
                 const li = document.createElement('li');
                 li.className = 'task-item';
                 li.innerHTML = `
-                    <input type="checkbox">
+                    <input type="checkbox" onchange="completeTask(this.parentNode)">
                     ${task.name} (+${task.points}🔮)
                 `;
                 taskList.appendChild(li);
             });
+
+            document.getElementById('shopBtn').addEventListener('click', showShop);
+            document.getElementById('closeShop').addEventListener('click', closeShop);
+            document.getElementById('startBtn').addEventListener('click', startTimer);
+            document.getElementById('pauseBtn').addEventListener('click', pauseTimer);
+            document.getElementById('resetBtn').addEventListener('click', resetTimer);
         };
     </script>
 </body>
-</html>
+
+</html>    
